@@ -25,6 +25,8 @@ with Bitmapped_Drawing;
 with HAL; use HAL;
 
 with HAL.Bitmap;
+--  with HAL.Framebuffer;
+
 with Memory_Mapped_Bitmap;
 
 with STM32.Device;
@@ -44,9 +46,9 @@ procedure Testst7735 is
 	--  séquence d'initialisation de l'écran ST7735 décrite ici :
 	--  https://github.com/AdaCore/Ada_Drivers_Library/blob/master/boards/OpenMV2/src/openmv-lcd_shield.adb
 	--
-	procedure Initialise (Ecran  : in out ST7735R.ST7735R_Screen;
-							  Width  : in Natural := 128;
-							  Height : in Natural := 160) is
+	procedure Initialise_ST7735 (Ecran  : in out ST7735R.ST7735R_Screen;
+										Width  : in Natural := 128;
+										Height : in Natural := 160) is
 	begin
 		Ecran.Initialize;
 
@@ -106,7 +108,70 @@ procedure Testst7735 is
 								  Y      => 0 ,
 								  Width  => Width,
 								  Height => Height);
-	end Initialise;
+	end Initialise_ST7735;
+
+
+	type Choix_SPI is (SPI1, SPI2);
+
+	procedure Initialise_SPI (SPI : Choix_SPI; SPI_SCK, SPI_MISO, SPI_MOSI, PIN_RS, PIN_RST, PIN_CS : in STM32.GPIO.GPIO_Point) is
+		SPI_Conf  : STM32.SPI.SPI_Configuration;
+		GPIO_Conf : STM32.GPIO.GPIO_Port_Configuration;
+
+		PINS_CS_RS_RST  : constant STM32.GPIO.GPIO_Points := (PIN_RS, PIN_RST, PIN_CS);
+		SPI_Points       : constant STM32.GPIO.GPIO_Points := (SPI_SCK, SPI_MISO, SPI_MOSI);
+
+	begin
+		--
+		--  initialiser SPI
+		--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/5ffdf12bec720aea12467229bb5862c465bf0333/boards/OpenMV2/src/openmv.adb#L140
+		--
+
+		STM32.Device.Enable_Clock (SPI_Points);
+
+		GPIO_Conf := (Mode           => STM32.GPIO.Mode_AF,
+					 AF             => (case SPI is when SPI1 => STM32.Device.GPIO_AF_SPI1_5, when SPI2 => STM32.Device.GPIO_AF_SPI2_5),
+					 Resistors      => STM32.GPIO.Pull_Down, --  SPI low polarity
+					 AF_Speed       => STM32.GPIO.Speed_100MHz,
+					 AF_Output_Type => STM32.GPIO.Push_Pull);
+
+		STM32.GPIO.Configure_IO (SPI_Points, GPIO_Conf);
+
+		STM32.Device.Enable_Clock (case SPI is when SPI1 => STM32.Device.SPI_1, when SPI2 => STM32.Device.SPI_2);
+
+		case SPI is
+		when SPI1 => STM32.Device.SPI_1.Disable;
+		when SPI2 => STM32.Device.SPI_1.Disable;
+		end case;
+
+		SPI_Conf.Direction           := STM32.SPI.D2Lines_FullDuplex;
+		SPI_Conf.Mode                := STM32.SPI.Master;
+		SPI_Conf.Data_Size           := HAL.SPI.Data_Size_8b;
+		SPI_Conf.Clock_Polarity      := STM32.SPI.Low;
+		SPI_Conf.Clock_Phase         := STM32.SPI.P1Edge;
+		SPI_Conf.Slave_Management    := STM32.SPI.Software_Managed;
+		SPI_Conf.Baud_Rate_Prescaler := STM32.SPI.BRP_2;
+		SPI_Conf.First_Bit           := STM32.SPI.MSB;
+		SPI_Conf.CRC_Poly            := 7;
+
+		case SPI is
+		when SPI1 =>
+			STM32.Device.SPI_1.Configure (SPI_Conf);
+			STM32.Device.SPI_1.Enable;
+		when SPI2 =>
+			STM32.Device.SPI_2.Configure (SPI_Conf);
+			STM32.Device.SPI_2.Enable;
+		end case;
+
+		STM32.Device.Enable_Clock (PINS_CS_RS_RST);
+
+		GPIO_Conf := (Mode        => STM32.GPIO.Mode_Out,
+					 Output_Type => STM32.GPIO.Push_Pull,
+					 Speed       => STM32.GPIO.Speed_100MHz,
+					 Resistors   => STM32.GPIO.Floating);
+
+		STM32.GPIO.Configure_IO (PINS_CS_RS_RST, GPIO_Conf);
+
+	end Initialise_SPI;
 
 
 	Period       : constant Ada.Real_Time.Time_Span := Ada.Real_Time.Milliseconds (50);
@@ -120,93 +185,47 @@ procedure Testst7735 is
 	--  CS, RS, RST : à fixer comme on veut
 	--  LEDA (pin 8 du ST7735) : connecté sur VCC (3.3V)
 
-	SPI1_SCK  : STM32.GPIO.GPIO_Point renames STM32.Device.PA5;
-	SPI1_MISO : STM32.GPIO.GPIO_Point renames STM32.Device.PA6;
-	SPI1_MOSI : STM32.GPIO.GPIO_Point renames STM32.Device.PA7;
+	SPI1_SCK  : STM32.GPIO.GPIO_Point renames STM32.Device.PB13; --  PA5;
+	SPI1_MISO : STM32.GPIO.GPIO_Point renames STM32.Device.PB14; --  PA6; -- pas utilisé dans les connexions
+	SPI1_MOSI : STM32.GPIO.GPIO_Point renames STM32.Device.PB15; --  PA7;
 	--  SPI1_NSS  : STM32.GPIO.GPIO_Point renames STM32.Device.PB4; -- CS (chip select)
 
-	ST7735_RS :  STM32.GPIO.GPIO_Point renames STM32.Device.PB10;  -- resgister select
+	ST7735_RS :  STM32.GPIO.GPIO_Point renames STM32.Device.PB10;  -- register select
 	ST7735_RST  : STM32.GPIO.GPIO_Point renames STM32.Device.PA8;  -- reset
 	ST7735_CS :  STM32.GPIO.GPIO_Point renames STM32.Device.PB4; -- chip select = SPI2_NSS
 
-	ST7735_CS_RS_RST  : constant STM32.GPIO.GPIO_Points := (ST7735_RS, ST7735_RST, ST7735_CS);
-	SPI1_Points : constant STM32.GPIO.GPIO_Points := (SPI1_SCK, SPI1_MISO, SPI1_MOSI); --, SPI1_NSS);
-
-	SPI_Conf  : STM32.SPI.SPI_Configuration;
-	GPIO_Conf : STM32.GPIO.GPIO_Port_Configuration;
-
-	Ecran_ST7735 : ST7735R.ST7735R_Screen (Port   => STM32.Device.SPI_1'Access,
+	Ecran_ST7735 : ST7735R.ST7735R_Screen (Port   => STM32.Device.SPI_2'Access,
 													 CS     => ST7735_CS'Access,
 													 RS     => ST7735_RS'Access,
 													 RST    => ST7735_RST'Access,
 													 Time   => Ravenscar_Time.Delays);
 
-	BitMap_ST7735 : HAL.Bitmap.Any_Bitmap_Buffer := Ecran_St7735.Hidden_Buffer (Layer => 1); --  bitmap du ST7735 dans laquelle dessiner
+	--  BitMap_ST7735 : HAL.Bitmap.Any_Bitmap_Buffer := Ecran_St7735.Hidden_Buffer (Layer => 1); --  bitmap du ST7735 dans laquelle dessiner
 
 	--  BitMap_Buffer pour le double buffering
 	--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/master/boards/OpenMV2/src/openmv-bitmap.adb
-	BitMap_Buffer :  Memory_Mapped_Bitmap.Any_Memory_Mapped_Bitmap_Buffer := new Memory_Mapped_Bitmap.Memory_Mapped_Bitmap_Buffer;
+	BitMap_Buffer :  constant Memory_Mapped_Bitmap.Any_Memory_Mapped_Bitmap_Buffer := new Memory_Mapped_Bitmap.Memory_Mapped_Bitmap_Buffer;
 	subtype Pixel_Data is UInt16_Array (1 .. (Width * Height));
-	Pixel_Data_BitMap_Buffer :  access Pixel_Data := new Pixel_Data;
+	Pixel_Data_BitMap_Buffer :  constant access Pixel_Data := new Pixel_Data;
 
 
-	Compteur : natural := 0; --  compteur affiché sur le ST7735
-	PosY     : natural := 0;
+	Compteur : Natural := 0; --  compteur affiché sur le ST7735
+	PosY     : Natural := 0;
 
 begin
 
 	--  initialisation de BitMap_Buffer
 	--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/master/boards/OpenMV2/src/openmv-bitmap.adb
-	BitMap_Buffer.Actual_Width := Width;
-	BitMap_Buffer.Actual_Height := Height;
+	BitMap_Buffer.Actual_Width := Height;  --  inversion pour le mode landscape (sinon Width)
+	BitMap_Buffer.Actual_Height := Width;  --  inversion pour le mode landscape (sinon Height)
 	BitMap_Buffer.Actual_Color_Mode := HAL.Bitmap.RGB_565;
-	BitMap_Buffer.Currently_Swapped := False;
+	BitMap_Buffer.Currently_Swapped := True; --  inversion pour le mode landscape (sinon false)
 	BitMap_Buffer.Addr := Pixel_Data_BitMap_Buffer.all'Address;
 
-	--
-	--  initialiser SPI 1
-	--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/5ffdf12bec720aea12467229bb5862c465bf0333/boards/OpenMV2/src/openmv.adb#L140
-	--
-
-	STM32.Device.Enable_Clock (SPI1_Points);
-
-	GPIO_Conf := (Mode           => STM32.GPIO.Mode_AF,
-					AF             => STM32.Device.GPIO_AF_SPI1_5,
-					Resistors      => STM32.GPIO.Pull_Down, --  SPI low polarity
-					AF_Speed       => STM32.GPIO.Speed_100MHz,
-					AF_Output_Type => STM32.GPIO.Push_Pull);
-
-	STM32.GPIO.Configure_IO (SPI1_Points, GPIO_Conf);
-
-	STM32.Device.Enable_Clock (STM32.Device.SPI_1);
-
-	STM32.Device.SPI_1.Disable;
-
-	SPI_Conf.Direction           := STM32.SPI.D2Lines_FullDuplex;
-	SPI_Conf.Mode                := STM32.SPI.Master;
-	SPI_Conf.Data_Size           := HAL.SPI.Data_Size_8b;
-	SPI_Conf.Clock_Polarity      := STM32.SPI.Low;
-	SPI_Conf.Clock_Phase         := STM32.SPI.P1Edge;
-	SPI_Conf.Slave_Management    := STM32.SPI.Software_Managed;
-	SPI_Conf.Baud_Rate_Prescaler := STM32.SPI.BRP_2;
-	SPI_Conf.First_Bit           := STM32.SPI.MSB;
-	SPI_Conf.CRC_Poly            := 7;
-
-	STM32.Device.SPI_1.Configure (SPI_Conf);
-
-	STM32.Device.SPI_1.Enable;
-
-	STM32.Device.Enable_Clock (ST7735_CS_RS_RST);
-
-	GPIO_Conf := (Mode        => STM32.GPIO.Mode_Out,
-					Output_Type => STM32.GPIO.Push_Pull,
-					Speed       => STM32.GPIO.Speed_100MHz,
-					Resistors   => STM32.GPIO.Floating);
-
-	STM32.GPIO.Configure_IO (ST7735_CS_RS_RST, GPIO_Conf);
+	Initialise_SPI (SPI2, SPI1_SCK, SPI1_MISO, SPI1_MOSI, ST7735_RS, ST7735_RST, ST7735_CS);
 
 	--  Initialiser l'écran TFT ST7735
-	Initialise (Ecran_ST7735, Width  => Width, Height => Height);
+	Initialise_ST7735 (Ecran_ST7735, Width  => Width, Height => Height);
 
 	--
 	--  Remplir 'Écran Avec Une Couleur (fonctionne mais pas efficace)
@@ -235,7 +254,7 @@ begin
 										  Foreground => HAL.Bitmap.Red,
 										  Background => HAL.Bitmap.White);
 
-	--Ecran_ST7735.Write_Raw_Pixels (Data =>  Pixel_Data_BitMap_Buffer.all);
+	--  Ecran_ST7735.Write_Raw_Pixels (Data =>  Pixel_Data_BitMap_Buffer.all);
 
 	--  tracer un trait -- fonctionne mais pas efficace
 	--  for Y in 10 .. 100 loop
@@ -270,7 +289,7 @@ begin
 											Foreground => HAL.Bitmap.Green_Yellow,
 											Background => HAL.Bitmap.Blue);
 
-		PosY := (if PosY > Height  then 0 else PosY + 1);
+		PosY := (if PosY > Width  then 0 else PosY + 1);
 
 
 		BitMap_Buffer.Set_Source (ARGB => HAL.Bitmap.Cyan);
