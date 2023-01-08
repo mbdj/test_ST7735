@@ -29,6 +29,7 @@ with HAL.Bitmap;
 
 with Memory_Mapped_Bitmap;
 
+with STM32.Board;
 with STM32.Device;
 with STM32.GPIO;
 with STM32.SPI;
@@ -185,10 +186,9 @@ procedure Testst7735 is
 	--  CS, RS, RST : à fixer comme on veut
 	--  LEDA (pin 8 du ST7735) : connecté sur VCC (3.3V)
 
-	SPI1_SCK  : STM32.GPIO.GPIO_Point renames STM32.Device.PB13; --  PA5;
-	SPI1_MISO : STM32.GPIO.GPIO_Point renames STM32.Device.PB14; --  PA6; -- pas utilisé dans les connexions
-	SPI1_MOSI : STM32.GPIO.GPIO_Point renames STM32.Device.PB15; --  PA7;
-	--  SPI1_NSS  : STM32.GPIO.GPIO_Point renames STM32.Device.PB4; -- CS (chip select)
+	SPI_SCK  : STM32.GPIO.GPIO_Point renames STM32.Device.PB13; --  PA5;
+	SPI_MISO : STM32.GPIO.GPIO_Point renames STM32.Device.PB14; --  PA6; -- pas utilisé dans les connexions
+	SPI_MOSI : STM32.GPIO.GPIO_Point renames STM32.Device.PB15; --  PA7;
 
 	ST7735_RS :  STM32.GPIO.GPIO_Point renames STM32.Device.PB10;  -- register select
 	ST7735_RST  : STM32.GPIO.GPIO_Point renames STM32.Device.PA8;  -- reset
@@ -222,7 +222,7 @@ begin
 	BitMap_Buffer.Currently_Swapped := True; --  inversion pour le mode landscape (sinon false)
 	BitMap_Buffer.Addr := Pixel_Data_BitMap_Buffer.all'Address;
 
-	Initialise_SPI (SPI2, SPI1_SCK, SPI1_MISO, SPI1_MOSI, ST7735_RS, ST7735_RST, ST7735_CS);
+	Initialise_SPI (SPI2, SPI_SCK, SPI_MISO, SPI_MOSI, ST7735_RS, ST7735_RST, ST7735_CS);
 
 	--  Initialiser l'écran TFT ST7735
 	Initialise_ST7735 (Ecran_ST7735, Width  => Width, Height => Height);
@@ -247,14 +247,6 @@ begin
 	--  BitMap_ST7735.Set_Source (ARGB => HAL.Bitmap.Violet);
 	--  BitMap_ST7735.Draw_Line (Start => (20, 20), Stop => (100, 80), Thickness => 3);
 
-	Bitmapped_Drawing.Draw_String (BitMap_Buffer.all,
-										  Start      => (40, 40),
-										  Msg        => ("NEW TEST"),
-										  Font       => BMP_Fonts.Font8x8,
-										  Foreground => HAL.Bitmap.Red,
-										  Background => HAL.Bitmap.White);
-
-	--  Ecran_ST7735.Write_Raw_Pixels (Data =>  Pixel_Data_BitMap_Buffer.all);
 
 	--  tracer un trait -- fonctionne mais pas efficace
 	--  for Y in 10 .. 100 loop
@@ -263,16 +255,17 @@ begin
 
 
 	--  initialiser la led utilisateur verte
-	--  STM32.Board.Initialize_LEDs; -- l'initialisation des LED empêche l'affichage sur ST7735 car les pins PA5,PA6,PA7 de SPI1 sont utilisées pour les LED
-	--  STM32.Board.Turn_On (STM32.Board.Green_LED);
+	STM32.Board.Initialize_LEDs; -- utiliser uniquement avec le ST7735 sur SPI2 car les pins PA5,PA6,PA7 de SPI1 sont utilisées pour les LED
+	STM32.Board.Turn_On (STM32.Board.Green_LED);
 
 
-	--  STM32.Board.Turn_Off (STM32.Board.Green_LED);
+	STM32.Board.Turn_Off (STM32.Board.Green_LED);
 
 	loop
-		--  STM32.Board.Toggle (STM32.Board.Green_LED);
+		STM32.Board.Toggle (STM32.Board.Green_LED);
 
 		--  écriture sur le ST7735
+		--  nb : il faut redessiner toute l'image à chaque fois
 		BitMap_Buffer.Set_Source (ARGB => HAL.Bitmap.Dark_Magenta);
 		BitMap_Buffer.Fill;
 		Bitmapped_Drawing.Draw_String (BitMap_Buffer.all,
@@ -280,7 +273,7 @@ begin
 											Msg        => ("NEW TEST"),
 											Font       => BMP_Fonts.Font8x8,
 											Foreground => HAL.Bitmap.Red,
-											Background => HAL.Bitmap.White);
+											Background => HAL.Bitmap.Green);
 
 		Bitmapped_Drawing.Draw_String (BitMap_Buffer.all,
 											Start      => (30, PosY),
