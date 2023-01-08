@@ -12,7 +12,6 @@ pragma Unreferenced (Last_Chance_Handler);
 --  an exception is propagated. We need it in the executable, therefore it
 --  must be somewhere in the closure of the context clauses.
 
---  with STM32.Board;
 
 with Ada.Real_Time; use Ada.Real_Time;
 
@@ -118,8 +117,8 @@ procedure Testst7735 is
 		SPI_Conf  : STM32.SPI.SPI_Configuration;
 		GPIO_Conf : STM32.GPIO.GPIO_Port_Configuration;
 
-		PINS_CS_RS_RST  : constant STM32.GPIO.GPIO_Points := (PIN_RS, PIN_RST, PIN_CS);
-		SPI_Points       : constant STM32.GPIO.GPIO_Points := (SPI_SCK, SPI_MISO, SPI_MOSI);
+		CS_RS_RST_Points  : constant STM32.GPIO.GPIO_Points := (PIN_RS, PIN_RST, PIN_CS);
+		SPI_Points      : constant STM32.GPIO.GPIO_Points := (SPI_SCK, SPI_MISO, SPI_MOSI);
 
 	begin
 		--
@@ -163,14 +162,14 @@ procedure Testst7735 is
 			STM32.Device.SPI_2.Enable;
 		end case;
 
-		STM32.Device.Enable_Clock (PINS_CS_RS_RST);
+		STM32.Device.Enable_Clock (CS_RS_RST_Points);
 
 		GPIO_Conf := (Mode        => STM32.GPIO.Mode_Out,
 					 Output_Type => STM32.GPIO.Push_Pull,
 					 Speed       => STM32.GPIO.Speed_100MHz,
 					 Resistors   => STM32.GPIO.Floating);
 
-		STM32.GPIO.Configure_IO (PINS_CS_RS_RST, GPIO_Conf);
+		STM32.GPIO.Configure_IO (CS_RS_RST_Points, GPIO_Conf);
 
 	end Initialise_SPI;
 
@@ -179,15 +178,14 @@ procedure Testst7735 is
 	Next_Release : Ada.Real_Time.Time := Ada.Real_Time.Clock;
 
 
-	--  Initialisation de l'écran ST7735 en SPI (sur SPI 1)
-	--  SPI1_SCK : PA5
-	--  SPI1_MISO : PA6 = pas utilisé
-	--  SPI1_MOSI (-> SDA) : PA7
+	--  Initialisation de l'écran ST7735 en SPI
+	--  SPI 1 : SCK connecté sur SCK/SCL PA5 ; SDA connecté à MOSI PA7 ; pas de connexion sur MISO (PA6)
+	--  SPI 2 : SCK connecté sur SCK/SCL PB13 ; SDA connecté à MOSI PB15 ; pas de connexion sur MISO (PB14)
 	--  CS, RS, RST : à fixer comme on veut
-	--  LEDA (pin 8 du ST7735) : connecté sur VCC (3.3V)
+	--  LEDA (pin 8 du ST7735) : rétroéclairage connecté sur VCC (3.3V)
 
 	SPI_SCK  : STM32.GPIO.GPIO_Point renames STM32.Device.PB13; --  PA5;
-	SPI_MISO : STM32.GPIO.GPIO_Point renames STM32.Device.PB14; --  PA6; -- pas utilisé dans les connexions
+	SPI_MISO : STM32.GPIO.GPIO_Point renames STM32.Device.PB14; --  PA6; -- pas connecté au ST7735
 	SPI_MOSI : STM32.GPIO.GPIO_Point renames STM32.Device.PB15; --  PA7;
 
 	ST7735_RS :  STM32.GPIO.GPIO_Point renames STM32.Device.PB10;  -- register select
@@ -200,6 +198,7 @@ procedure Testst7735 is
 													 RST    => ST7735_RST'Access,
 													 Time   => Ravenscar_Time.Delays);
 
+	--  Sans double buffering
 	--  BitMap_ST7735 : HAL.Bitmap.Any_Bitmap_Buffer := Ecran_St7735.Hidden_Buffer (Layer => 1); --  bitmap du ST7735 dans laquelle dessiner
 
 	--  BitMap_Buffer pour le double buffering
@@ -219,7 +218,7 @@ begin
 	BitMap_Buffer.Actual_Width := Height;  --  inversion pour le mode landscape (sinon Width)
 	BitMap_Buffer.Actual_Height := Width;  --  inversion pour le mode landscape (sinon Height)
 	BitMap_Buffer.Actual_Color_Mode := HAL.Bitmap.RGB_565;
-	BitMap_Buffer.Currently_Swapped := True; --  inversion pour le mode landscape (sinon false)
+	BitMap_Buffer.Currently_Swapped := True; --  inversion pour le mode landscape (sinon False)
 	BitMap_Buffer.Addr := Pixel_Data_BitMap_Buffer.all'Address;
 
 	Initialise_SPI (SPI2, SPI_SCK, SPI_MISO, SPI_MOSI, ST7735_RS, ST7735_RST, ST7735_CS);
