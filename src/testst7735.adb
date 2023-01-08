@@ -12,40 +12,41 @@ pragma Unreferenced (Last_Chance_Handler);
 --  an exception is propagated. We need it in the executable, therefore it
 --  must be somewhere in the closure of the context clauses.
 
-with STM32.Board;
+--  with STM32.Board;
 
 with Ada.Real_Time; use Ada.Real_Time;
-
-
 
 --  écran ST7735
 --  with ST7735R.RAM_Framebuffer;
 with ST7735R;
 
-
 with Bitmapped_Drawing;
---  with BMP_Fonts;
+
+with HAL; use HAL;
+
 with HAL.Bitmap;
+with Memory_Mapped_Bitmap;
 
 with STM32.Device;
 with STM32.GPIO;
 with STM32.SPI;
 
-
 with Ravenscar_Time;
 with BMP_Fonts;
 
-
-
-
 procedure Testst7735 is
 
+	--  dimensions de l'écran ST7735
+	Width  :  constant Natural := 128;
+	Height :  constant Natural := 160;
 
 	--
 	--  séquence d'initialisation de l'écran ST7735 décrite ici :
 	--  https://github.com/AdaCore/Ada_Drivers_Library/blob/master/boards/OpenMV2/src/openmv-lcd_shield.adb
 	--
-	procedure Initialise (Ecran : in out ST7735R.ST7735R_Screen) is
+	procedure Initialise (Ecran  : in out ST7735R.ST7735R_Screen;
+							  Width  : in Natural := 128;
+							  Height : in Natural := 160) is
 	begin
 		Ecran.Initialize;
 
@@ -93,23 +94,23 @@ procedure Testst7735 is
 		Ecran.Set_Vcom ( 16#E#);
 
 		Ecran.Set_Address (X_Start => 0,
-							X_End   => 127,
+							X_End   => UInt16 (Width - 1),
 							Y_Start => 0,
-							Y_End   => 159);
+							Y_End   => UInt16 (Height - 1));
 
 		Ecran.Turn_On;
 
 		Ecran.Initialize_Layer (Layer  => 1,
-											Mode   => HAL.Bitmap.RGB_565,
-											X      => 0,
-											Y      => 0 ,
-											Width  => 128,
-											Height => 160);
+								  Mode   => HAL.Bitmap.RGB_565,
+								  X      => 0,
+								  Y      => 0 ,
+								  Width  => Width,
+								  Height => Height);
 	end Initialise;
 
-	Period       : constant Ada.Real_Time.Time_Span := Ada.Real_Time.Milliseconds (100);
-	Next_Release : Ada.Real_Time.Time := Ada.Real_Time.Clock;
 
+	Period       : constant Ada.Real_Time.Time_Span := Ada.Real_Time.Milliseconds (50);
+	Next_Release : Ada.Real_Time.Time := Ada.Real_Time.Clock;
 
 
 	--  Initialisation de l'écran ST7735 en SPI (sur SPI 1)
@@ -140,14 +141,32 @@ procedure Testst7735 is
 													 RST    => ST7735_RST'Access,
 													 Time   => Ravenscar_Time.Delays);
 
-	BM           : HAL.Bitmap.Any_Bitmap_Buffer := Ecran_St7735.Hidden_Buffer (Layer => 1); --  bitmap du ST7735 dans laquelle dessiner
+	BitMap_ST7735 : HAL.Bitmap.Any_Bitmap_Buffer := Ecran_St7735.Hidden_Buffer (Layer => 1); --  bitmap du ST7735 dans laquelle dessiner
 
-	Compteur     : Integer := 0;
+	--  BitMap_Buffer pour le double buffering
+	--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/master/boards/OpenMV2/src/openmv-bitmap.adb
+	BitMap_Buffer :  Memory_Mapped_Bitmap.Any_Memory_Mapped_Bitmap_Buffer := new Memory_Mapped_Bitmap.Memory_Mapped_Bitmap_Buffer;
+	subtype Pixel_Data is UInt16_Array (1 .. (Width * Height));
+	Pixel_Data_BitMap_Buffer :  access Pixel_Data := new Pixel_Data;
+
+
+	Compteur : natural := 0; --  compteur affiché sur le ST7735
+	PosY     : natural := 0;
 
 begin
 
+	--  initialisation de BitMap_Buffer
+	--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/master/boards/OpenMV2/src/openmv-bitmap.adb
+	BitMap_Buffer.Actual_Width := Width;
+	BitMap_Buffer.Actual_Height := Height;
+	BitMap_Buffer.Actual_Color_Mode := HAL.Bitmap.RGB_565;
+	BitMap_Buffer.Currently_Swapped := False;
+	BitMap_Buffer.Addr := Pixel_Data_BitMap_Buffer.all'Address;
+
+	--
 	--  initialiser SPI 1
 	--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/5ffdf12bec720aea12467229bb5862c465bf0333/boards/OpenMV2/src/openmv.adb#L140
+	--
 
 	STM32.Device.Enable_Clock (SPI1_Points);
 
@@ -158,7 +177,6 @@ begin
 					AF_Output_Type => STM32.GPIO.Push_Pull);
 
 	STM32.GPIO.Configure_IO (SPI1_Points, GPIO_Conf);
-
 
 	STM32.Device.Enable_Clock (STM32.Device.SPI_1);
 
@@ -188,10 +206,11 @@ begin
 	STM32.GPIO.Configure_IO (ST7735_CS_RS_RST, GPIO_Conf);
 
 	--  Initialiser l'écran TFT ST7735
-	Initialise (Ecran_ST7735);
+	Initialise (Ecran_ST7735, Width  => Width, Height => Height);
 
-
-	--  Remplir L'Écran Avec Une Couleur
+	--
+	--  Remplir 'Écran Avec Une Couleur (fonctionne mais pas efficace)
+	--
 	--  for X in 0 .. 128 loop
 	--  	for Y in 0 .. 160 loop
 	--  		Ecran_ST7735.Set_Pixel (X => HAL.UInt16 (X), Y => HAL.UInt16 (Y), Color => 0);
@@ -199,41 +218,35 @@ begin
 	--  end loop;
 
 
-	Ecran_ST7735.Update_Layer (Layer => 1);
+	--  Set_Source fixe la couleur de tracé
+	BitMap_Buffer.Set_Source (ARGB => HAL.Bitmap.Dark_Magenta);
+	BitMap_Buffer.Fill;
 
-	-- Set_Source fixe la couleur de tracé
-	BM.Set_Source (ARGB => HAL.Bitmap.Gold);
-	BM.Fill;
+	--  BitMap_ST7735.Set_Source (ARGB => HAL.Bitmap.Cyan);
+	--  BitMap_ST7735.Draw_Circle (Center => (X => 50, Y => 50) , Radius =>  40);
+	--
+	--  BitMap_ST7735.Set_Source (ARGB => HAL.Bitmap.Violet);
+	--  BitMap_ST7735.Draw_Line (Start => (20, 20), Stop => (100, 80), Thickness => 3);
 
-	BM.Set_Source (ARGB => HAL.Bitmap.Cyan);
-	BM.Draw_Circle (Center => (X => 50, Y => 50) , Radius =>  40);
-
-	BM.Set_Source (ARGB => HAL.Bitmap.Violet);
-	BM.Draw_Line (Start => (20, 20), Stop => (100, 80), Thickness => 3);
-
-	Bitmapped_Drawing.Draw_String (BM.all,
-										  Start      => (50, 50),
-										  Msg        => ("TEST"),
+	Bitmapped_Drawing.Draw_String (BitMap_Buffer.all,
+										  Start      => (40, 40),
+										  Msg        => ("NEW TEST"),
 										  Font       => BMP_Fonts.Font8x8,
 										  Foreground => HAL.Bitmap.Red,
 										  Background => HAL.Bitmap.White);
-	--  Ecran_ST7735.Update_Layer (Layer => 1);
 
+	--Ecran_ST7735.Write_Raw_Pixels (Data =>  Pixel_Data_BitMap_Buffer.all);
 
-	--  tracer un trait
+	--  tracer un trait -- fonctionne mais pas efficace
 	--  for Y in 10 .. 100 loop
 	--  	Ecran_ST7735.Set_Pixel (X => 20, Y => HAL.UInt16 (Y), Color => 31);  -- Color au format RGB 565 : R sur 5bits G sur 6 bits B sur 5 bits
 	--  end loop;
-	--
-	--  Ecran_ST7735.Update_Layer (Layer => 1);
+
 
 	--  initialiser la led utilisateur verte
 	--  STM32.Board.Initialize_LEDs; -- l'initialisation des LED empêche l'affichage sur ST7735 car les pins PA5,PA6,PA7 de SPI1 sont utilisées pour les LED
 	--  STM32.Board.Turn_On (STM32.Board.Green_LED);
 
-
-
-	--  Ecran_ST7735.Update_Layer (Layer => 1);
 
 	--  STM32.Board.Turn_Off (STM32.Board.Green_LED);
 
@@ -241,12 +254,30 @@ begin
 		--  STM32.Board.Toggle (STM32.Board.Green_LED);
 
 		--  écriture sur le ST7735
-		Bitmapped_Drawing.Draw_String (BM.all,
-											Start      => (30, 30),
+		BitMap_Buffer.Set_Source (ARGB => HAL.Bitmap.Dark_Magenta);
+		BitMap_Buffer.Fill;
+		Bitmapped_Drawing.Draw_String (BitMap_Buffer.all,
+											Start      => (40, 40),
+											Msg        => ("NEW TEST"),
+											Font       => BMP_Fonts.Font8x8,
+											Foreground => HAL.Bitmap.Red,
+											Background => HAL.Bitmap.White);
+
+		Bitmapped_Drawing.Draw_String (BitMap_Buffer.all,
+											Start      => (30, PosY),
 											Msg        => (Compteur'Image),
 											Font       => BMP_Fonts.Font12x12,
-											Foreground => HAL.Bitmap.White,
+											Foreground => HAL.Bitmap.Green_Yellow,
 											Background => HAL.Bitmap.Blue);
+
+		PosY := (if PosY > Height  then 0 else PosY + 1);
+
+
+		BitMap_Buffer.Set_Source (ARGB => HAL.Bitmap.Cyan);
+		BitMap_Buffer.Draw_Circle (Center => (X => 40, Y => 50) , Radius =>  40);
+
+		Ecran_ST7735.Write_Raw_Pixels (Data =>  Pixel_Data_BitMap_Buffer.all);
+
 		Compteur := Compteur + 1 ;
 
 		Next_Release := Next_Release + Period;
