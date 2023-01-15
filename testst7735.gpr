@@ -9,10 +9,10 @@ project Testst7735 is
    for Exec_Dir use "bin";
    for Main use ("testst7735.adb");
    for Target use "arm-eabi";
-   for Runtime ("ada") use "ravenscar-full-stm32f4";
+   for Runtime ("ada") use "embedded-stm32f4";
 
    package Compiler is
-      for Default_Switches ("ada") use ("-Og", "-ffunction-sections", "-fdata-sections", "-g", "-gnatVa", "-gnatwa.X", "-gnatyaABbc-defhiIklM79nOprStux");
+      for Default_Switches ("ada") use ("-Og", "-ffunction-sections", "-fdata-sections", "-g", "-gnat2020", "-gnatVa", "-gnatwa.X", "-gnatyaABbc-defhiIklM79nOprStux");
    end Compiler;
 
    package Binder is

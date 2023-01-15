@@ -269,7 +269,7 @@ begin
 		BitMap_Buffer.Fill;
 		Bitmapped_Drawing.Draw_String (BitMap_Buffer.all,
 											Start      => (40, 40),
-											Msg        => ("NEW TEST"),
+											Msg        => ("NEW TEST FSF 12"),
 											Font       => BMP_Fonts.Font8x8,
 											Foreground => HAL.Bitmap.Red,
 											Background => HAL.Bitmap.Green);
