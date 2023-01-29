@@ -5,10 +5,10 @@ package body ST7735_Buffering is
 
 
 ----------------
--- Initialise --
+-- Initialize --
 ----------------
 
-	procedure Initialise  (ST7735      :  in out ST7735_Buffering;
+	procedure Initialize  (ST7735      :  in out ST7735_Buffering;
 								Choix_SPI   : in SPI.Choix_SPI;
 								SPI_SCK     : in STM32.GPIO.GPIO_Point;
 								SPI_MISO    : in STM32.GPIO.GPIO_Point;
@@ -132,7 +132,7 @@ package body ST7735_Buffering is
 		ST7735.BitMap_Buffer.Actual_Color_Mode := HAL.Bitmap.RGB_565;
 		ST7735.BitMap_Buffer.Addr := ST7735.Pixel_Data_BitMap_Buffer.all'Address;
 
-	end Initialise;
+	end Initialize;
 
 
 

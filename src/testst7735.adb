@@ -29,14 +29,17 @@ with Ravenscar_Time;
 with BMP_Fonts;
 
 procedure Testst7735 is
+----------------------------------------------------
 	function Min (A, B : in Natural) return Natural is
 	begin
 		return (if A > B then B else A);
 	end;
-	function MAx (A, B : in Natural) return Natural is
+
+	function Max (A, B : in Natural) return Natural is
 	begin
 		return (if A > B then A else B);
 	end;
+	----------------------------------------------------
 
 	--  dimensions de l'écran ST7735
 	Width       :  constant Natural := 128;
@@ -60,17 +63,16 @@ procedure Testst7735 is
 begin
 
 	--  Initialiser l'écran TFT ST7735
-	ST7735_Buffering.Initialise (ST7735       => Ecran_ST7735,
-										Choix_SPI    => SPI.SPI2,
-										SPI_SCK      => STM32.Device.PB13,
-										SPI_MISO     => STM32.Device.PB14,
-										SPI_MOSI     => STM32.Device.PB15,
-										PIN_RS       => STM32.Device.PB10,
-										PIN_RST      => STM32.Device.PA8,
-										PIN_CS       => STM32.Device.PB4,
-										Width        => Width,  --  les spécifications du ST7735 sont données en orientation portrait
-										Height       => Height,  --  les spécifications du ST7735 sont données en orientation portrait
-										Orientation  => Orientation);
+	Ecran_ST7735.Initialize (Choix_SPI    => SPI.SPI2,
+								  SPI_SCK      => STM32.Device.PB13,
+								  SPI_MISO     => STM32.Device.PB14,
+								  SPI_MOSI     => STM32.Device.PB15,
+								  PIN_RS       => STM32.Device.PB10,
+								  PIN_RST      => STM32.Device.PA8,
+								  PIN_CS       => STM32.Device.PB4,
+								  Width        => Width,
+								  Height       => Height,
+								  Orientation  => Orientation);
 
 
 	--  Set_Source fixe la couleur de tracé
@@ -91,7 +93,7 @@ begin
 		Ecran_ST7735.BitMap.Fill;
 		Bitmapped_Drawing.Draw_String (Ecran_ST7735.BitMap.all,
 											Start      => (40, 40),
-											Msg        => ("MEHDI"),
+											Msg        => ("ST7735"),
 											Font       => BMP_Fonts.Font8x8,
 											Foreground => HAL.Bitmap.Red,
 											Background => HAL.Bitmap.Green);
@@ -102,9 +104,11 @@ begin
 											Font       => BMP_Fonts.Font12x12,
 											Foreground => HAL.Bitmap.Green_Yellow,
 											Background => HAL.Bitmap.Blue);
-
-		PosY := (if PosY > (if Orientation = LANDSCAPE then Min (Width, Height) else Max (Width, Height))
-			  then 0 else PosY + 1);
+		declare
+			Hauteur : Integer := (if Orientation = LANDSCAPE then Min (Width, Height) else Max (Width, Height));
+		begin
+			PosY := (if PosY > Hauteur then 0 else PosY + 1);
+		end;
 
 		Ecran_ST7735.BitMap.Set_Source (ARGB => HAL.Bitmap.Cyan);
 		Ecran_ST7735.BitMap.Draw_Circle (Center => (X => 40, Y => 50) , Radius =>  40);

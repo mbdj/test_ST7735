@@ -21,7 +21,7 @@ package ST7735_Buffering is
 	type Type_Orientation is (LANDSCAPE, PORTRAIT);
 
 	--  initialisation de l'écran et du buffer
-	procedure Initialise (ST7735       : in out ST7735_Buffering;
+	procedure Initialize (ST7735       : in out ST7735_Buffering;
 							  Choix_SPI    : in SPI.Choix_SPI;
 							  SPI_SCK      : in STM32.GPIO.GPIO_Point;
 							  SPI_MISO     : in STM32.GPIO.GPIO_Point;
