@@ -1,4 +1,4 @@
-name = "testst7735"
+name = "testst7735_buffer"
 description = "Shiny new project"
 version = "0.1.0-dev"
 
@@ -6,4 +6,4 @@ authors = ["mehdi"]
 maintainers = ["mehdi <mbdj@free.fr>"]
 maintainers-logins = ["github-mbdj"]
 
-executables = ["testst7735"]
+executables = ["testst7735_buffer"]

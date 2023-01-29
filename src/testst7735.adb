@@ -30,15 +30,11 @@ with BMP_Fonts;
 
 procedure Testst7735 is
 ----------------------------------------------------
-	function Min (A, B : in Natural) return Natural is
-	begin
-		return (if A > B then B else A);
-	end;
+	function Min (A, B : in Natural) return Natural is (if A > B then B else A);
 
-	function Max (A, B : in Natural) return Natural is
-	begin
-		return (if A > B then A else B);
-	end;
+
+	function Max (A, B : in Natural) return Natural is (if A > B then A else B);
+
 	----------------------------------------------------
 
 	--  dimensions de l'écran ST7735
