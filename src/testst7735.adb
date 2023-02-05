@@ -31,27 +31,33 @@ with BMP_Fonts;
 procedure Testst7735 is
 ----------------------------------------------------
 	function Min (A, B : in Natural) return Natural is (if A > B then B else A);
-
-
 	function Max (A, B : in Natural) return Natural is (if A > B then A else B);
-
 	----------------------------------------------------
 
 	--  dimensions de l'écran ST7735
-	Width       :  constant Natural := 128;
+	Width       :  constant Natural := 80;
 	Height      :  constant Natural := 160;
-	Orientation : constant Type_Orientation := PORTRAIT;
+	Orientation : constant Type_Orientation := Portrait;
 
 
 	Period       : constant Ada.Real_Time.Time_Span := Ada.Real_Time.Milliseconds (50);
 	Next_Release : Ada.Real_Time.Time := Ada.Real_Time.Clock;
 
 
-	Ecran_ST7735 : ST7735_Buffering.ST7735_Buffering (Port   => STM32.Device.SPI_2'Access,
-																	CS     => STM32.Device.PB4'Access,
-																	RS     => STM32.Device.PB10'Access,
-																	RST    => STM32.Device.PA8'Access,
-																	Time   => Ravenscar_Time.Delays);
+	Ecran_ST7735 : ST7735_Buffering.ST7735_Buffering (Port             => STM32.Device.SPI_2'Access,
+																	CS               => STM32.Device.PB4'Access,
+																	RS               => STM32.Device.PB10'Access,
+																	RST              => STM32.Device.PA8'Access,
+																	Time             => Ravenscar_Time.Delays,
+																	Choix_SPI        => SPI.SPI2,
+																	SPI_SCK          => STM32.Device.PB13'Access,  -- à raccorder à SCK ou SCL       (SPI1 : PA5 ; SPI2 : PB13)
+																	SPI_MISO         => STM32.Device.PB14'Access,  -- pas utilisé sur l'écran ST7735 (SPI1 : PA7 ; SPI2 : PB14)
+																	SPI_MOSI         => STM32.Device.PB15'Access,  -- à raccorder à SDA              (SPI1 : PA7 ; SPI2 : PB15)
+																	Width            => Width,              -- backlight (LEDA ou BLK) doit être raccordé à +3.3V ou +5V
+																	Height           => Height,
+																	Orientation      => Orientation,
+																	Color_Correction => True);
+
 
 	Compteur : Natural := 0; --  compteur affiché sur le ST7735
 	PosY     : Natural := 0; --  position où on affiche le compteur
@@ -59,17 +65,7 @@ procedure Testst7735 is
 begin
 
 	--  Initialiser l'écran TFT ST7735
-	Ecran_ST7735.Initialize (Choix_SPI    => SPI.SPI2,
-								  SPI_SCK      => STM32.Device.PB13,
-								  SPI_MISO     => STM32.Device.PB14,
-								  SPI_MOSI     => STM32.Device.PB15,
-								  PIN_RS       => STM32.Device.PB10,
-								  PIN_RST      => STM32.Device.PA8,
-								  PIN_CS       => STM32.Device.PB4,
-								  Width        => Width,
-								  Height       => Height,
-								  Orientation  => Orientation);
-
+	Ecran_ST7735.Initialize;
 
 	--  Set_Source fixe la couleur de tracé
 	Ecran_ST7735.BitMap.Set_Source (ARGB => HAL.Bitmap.Dark_Magenta);
@@ -88,7 +84,7 @@ begin
 		Ecran_ST7735.BitMap.Set_Source (ARGB => HAL.Bitmap.Dark_Magenta);
 		Ecran_ST7735.BitMap.Fill;
 		Bitmapped_Drawing.Draw_String (Ecran_ST7735.BitMap.all,
-											Start      => (40, 40),
+											Start      => (0, 0),
 											Msg        => ("ST7735"),
 											Font       => BMP_Fonts.Font8x8,
 											Foreground => HAL.Bitmap.Red,
@@ -98,7 +94,7 @@ begin
 											Start      => (30, PosY),
 											Msg        => (Compteur'Image),
 											Font       => BMP_Fonts.Font12x12,
-											Foreground => HAL.Bitmap.Green_Yellow,
+											Foreground => HAL.Bitmap.White,
 											Background => HAL.Bitmap.Blue);
 		declare
 			Hauteur : Integer := (if Orientation = LANDSCAPE then Min (Width, Height) else Max (Width, Height));
