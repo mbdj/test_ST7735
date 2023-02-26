@@ -35,9 +35,9 @@ procedure Testst7735 is
 	----------------------------------------------------
 
 	--  dimensions de l'écran ST7735
-	Width       :  constant Natural := 80;
-	Height      :  constant Natural := 160;
-	Orientation : constant Type_Orientation := Portrait;
+	Width       :  constant Natural := 160;
+	Height      :  constant Natural := 128;
+	Orientation : constant Type_Orientation := portrait;
 
 
 	Period       : constant Ada.Real_Time.Time_Span := Ada.Real_Time.Milliseconds (50);
@@ -56,7 +56,7 @@ procedure Testst7735 is
 																	Width            => Width,              -- backlight (LEDA ou BLK) doit être raccordé à +3.3V ou +5V
 																	Height           => Height,
 																	Orientation      => Orientation,
-																	Color_Correction => True);
+																	Color_Correction => False);
 
 
 	Compteur : Natural := 0; --  compteur affiché sur le ST7735
@@ -66,10 +66,6 @@ begin
 
 	--  Initialiser l'écran TFT ST7735
 	Ecran_ST7735.Initialize;
-
-	--  Set_Source fixe la couleur de tracé
-	Ecran_ST7735.BitMap.Set_Source (ARGB => HAL.Bitmap.Dark_Magenta);
-	Ecran_ST7735.BitMap.Fill;
 
 	--  initialiser la led utilisateur verte
 	STM32.Board.Initialize_LEDs; -- utiliser uniquement avec le ST7735 sur SPI2 car les pins PA5,PA6,PA7 de SPI1 sont utilisées pour les LED
@@ -81,7 +77,7 @@ begin
 		--  écriture sur le ST7735
 		--  nb : il faut redessiner toute l'image à chaque fois
 		--  il faut dessiner dans la BitMap puis afficher sur l'écran physique avec Display
-		Ecran_ST7735.BitMap.Set_Source (ARGB => HAL.Bitmap.Dark_Magenta);
+		Ecran_ST7735.BitMap.Set_Source (ARGB => HAL.Bitmap.Black);
 		Ecran_ST7735.BitMap.Fill;
 		Bitmapped_Drawing.Draw_String (Ecran_ST7735.BitMap.all,
 											Start      => (0, 0),
@@ -97,7 +93,7 @@ begin
 											Foreground => HAL.Bitmap.White,
 											Background => HAL.Bitmap.Blue);
 		declare
-			Hauteur : Integer := (if Orientation = LANDSCAPE then Min (Width, Height) else Max (Width, Height));
+			Hauteur : constant Integer := (if Orientation = LANDSCAPE then Min (Width, Height) else Max (Width, Height));
 		begin
 			PosY := (if PosY > Hauteur then 0 else PosY + 1);
 		end;

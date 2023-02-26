@@ -46,12 +46,12 @@ package body ST7735_Buffering is
 		ST7735R.Initialize (LCD => ST7735R.ST7735R_Screen (ST7735));
 
 		ST7735.Set_Memory_Data_Access
-		  (	 Color_Order         => (if ST7735.Color_Correction then ST7735R.BGR_Order else ST7735R.RGB_Order),
+		  (	 Color_Order       => (if ST7735.Color_Correction then ST7735R.BGR_Order else ST7735R.RGB_Order),
 	  Vertical            => ST7735R.Vertical_Refresh_Top_Bottom,
 	  Horizontal          => ST7735R.Horizontal_Refresh_Left_Right,
 	  Row_Addr_Order      => ST7735R.Row_Address_Bottom_Top,
-		Column_Addr_Order   => ST7735R.Column_Address_Right_Left,
-		 Row_Column_Exchange => False);
+	  Column_Addr_Order   => ST7735R.Column_Address_Right_Left,
+	  Row_Column_Exchange => False);
 
 		ST7735.Set_Pixel_Format ( ST7735R.Pixel_16bits);
 
@@ -84,9 +84,9 @@ package body ST7735_Buffering is
 										VGHBT => 2#01#); --  -10
 
 		ST7735.Set_Power_Control_3 (16#0A#, 16#00#);
-		ST7735.Set_Power_Control_4 ( 16#8A#, 16#2A#);
-		ST7735.Set_Power_Control_5 ( 16#8A#, 16#EE#);
-		ST7735.Set_Vcom ( 16#E#);
+		ST7735.Set_Power_Control_4 (16#8A#, 16#2A#);
+		ST7735.Set_Power_Control_5 (16#8A#, 16#EE#);
+		ST7735.Set_Vcom (16#E#);
 
 		ST7735.Set_Address (X_Start => 0,
 							 X_End   => UInt16 (Min_Dim - 1),
@@ -102,7 +102,7 @@ package body ST7735_Buffering is
 		ST7735.Initialize_Layer (Layer  => 1,
 									Mode   => HAL.Bitmap.RGB_565,
 									X      => 0,
-									Y      => 0 ,
+									Y      => 0,
 									Width  => Min_Dim,
 									Height => Max_Dim);
 
@@ -112,15 +112,15 @@ package body ST7735_Buffering is
 		--  voir https://github.com/AdaCore/Ada_Drivers_Library/blob/master/boards/OpenMV2/src/openmv-bitmap.adb
 
 
-  if (ST7735.Orientation = LANDSCAPE) then
-  	ST7735.BitMap_Buffer.Actual_Width := Max_Dim;  --  inversion pour le mode landscape (sinon Width)
-  	ST7735.BitMap_Buffer.Actual_Height := Min_Dim;  --  inversion pour le mode landscape (sinon Height)
-  	ST7735.BitMap_Buffer.Currently_Swapped := True; --  inversion pour le mode landscape (sinon False)
-  else
-  	ST7735.BitMap_Buffer.Actual_Width := Min_Dim;  --  inversion pour le mode landscape (sinon Width)
-  	ST7735.BitMap_Buffer.Actual_Height := Max_Dim;  --  inversion pour le mode landscape (sinon Height)
-  	ST7735.BitMap_Buffer.Currently_Swapped := False; --  inversion pour le mode landscape (sinon False)
-  end if;
+		if (ST7735.Orientation = LANDSCAPE) then
+			ST7735.BitMap_Buffer.Actual_Width := Max_Dim;  --  inversion pour le mode landscape (sinon Width)
+			ST7735.BitMap_Buffer.Actual_Height := Min_Dim;  --  inversion pour le mode landscape (sinon Height)
+			ST7735.BitMap_Buffer.Currently_Swapped := True; --  inversion pour le mode landscape (sinon False)
+		else
+			ST7735.BitMap_Buffer.Actual_Width := Min_Dim;  --  inversion pour le mode landscape (sinon Width)
+			ST7735.BitMap_Buffer.Actual_Height := Max_Dim;  --  inversion pour le mode landscape (sinon Height)
+			ST7735.BitMap_Buffer.Currently_Swapped := False; --  inversion pour le mode landscape (sinon False)
+		end if;
 
 		ST7735.BitMap_Buffer.Actual_Color_Mode := HAL.Bitmap.RGB_565;
 		ST7735.BitMap_Buffer.Addr := ST7735.Pixel_Data_BitMap_Buffer.all'Address;

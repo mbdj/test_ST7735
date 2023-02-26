@@ -34,7 +34,7 @@ package ST7735_Buffering is
 	 Width               :  Natural;
 	 Height              :  Natural;
 	 Orientation         :  Type_Orientation;
-	 Color_Correction    :  Boolean)
+	 Color_Correction    :  Boolean)  -- les écrans 160x80 nécessitent une correction des couleurs
 	is limited new ST7735R.ST7735R_Screen with private;
 
 
