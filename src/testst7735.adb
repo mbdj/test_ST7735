@@ -35,10 +35,10 @@ procedure Testst7735 is
 	----------------------------------------------------
 
 	--  dimensions de l'écran ST7735
+
 	Width       :  constant Natural := 160;
 	Height      :  constant Natural := 128;
 	Orientation : constant Type_Orientation := portrait;
-
 
 	Period       : constant Ada.Real_Time.Time_Span := Ada.Real_Time.Milliseconds (50);
 	Next_Release : Ada.Real_Time.Time := Ada.Real_Time.Clock;
@@ -66,6 +66,7 @@ begin
 
 	--  Initialiser l'écran TFT ST7735
 	Ecran_ST7735.Initialize;
+
 
 	--  initialiser la led utilisateur verte
 	STM32.Board.Initialize_LEDs; -- utiliser uniquement avec le ST7735 sur SPI2 car les pins PA5,PA6,PA7 de SPI1 sont utilisées pour les LED

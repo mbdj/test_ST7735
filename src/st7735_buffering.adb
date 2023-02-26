@@ -46,6 +46,7 @@ package body ST7735_Buffering is
 		ST7735R.Initialize (LCD => ST7735R.ST7735R_Screen (ST7735));
 
 		ST7735.Set_Memory_Data_Access
+
 		  (	 Color_Order       => (if ST7735.Color_Correction then ST7735R.BGR_Order else ST7735R.RGB_Order),
 	  Vertical            => ST7735R.Vertical_Refresh_Top_Bottom,
 	  Horizontal          => ST7735R.Horizontal_Refresh_Left_Right,
